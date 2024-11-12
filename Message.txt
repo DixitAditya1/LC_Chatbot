@@ -1,1 +1,7 @@
+Prompt:
+I have a SAS code that performs the following tasks:
 
+It uses a SAS DATA step to read from source_data, then applies some conditions to create a new column based on those conditions.
+It uses SAS PROC SQL to create intermediate tables and update values in an existing table based on certain conditions.
+It overwrites certain column values in the table depending on the outcome of specific conditions.
+Please convert this SAS code to Snowflake SQL, maintaining the logic and structure as closely as possible, including any data transformations, overwriting of column values, and handling intermediate datasets using CTEs or temporary tables.
