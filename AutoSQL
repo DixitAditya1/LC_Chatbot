@@ -1,0 +1,417 @@
+import streamlit as st
+import time
+from datetime import datetime
+
+# Page configuration
+st.set_page_config(
+    page_title="SQL Query Assistant",
+    page_icon="🗄️",
+    layout="wide",
+    initial_sidebar_state="collapsed"
+)
+
+# Custom CSS to match Chase's styling
+st.markdown("""
+<style>
+    /* Main styling */
+    .main {
+        padding-top: 1rem;
+        background-color: white;
+    }
+    
+    .stApp {
+        background-color: white;
+    }
+    
+    /* Header styling */
+    .header-container {
+        background: linear-gradient(135deg, #004499 0%, #004499 100%);
+        padding: 2rem 0;
+        margin: -1rem -1rem 2rem -1rem;
+        color: white;
+        text-align: center;
+    }
+    
+    .header-title {
+        font-size: 2.5rem;
+        font-weight: 700;
+        margin-bottom: 0.5rem;
+    }
+    
+    .header-subtitle {
+        font-size: 1.2rem;
+        opacity: 0.9;
+        margin-bottom: 0;
+    }
+    
+    /* Chat container styling */
+    .chat-container {
+        background-color: #f8f9fa;
+        border-radius: 12px;
+        padding: 1.5rem;
+        margin-bottom: 1rem;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    
+    /* Message styling */
+    .user-message {
+        background-color: #004499;
+        color: white;
+        padding: 1rem 1.5rem;
+        border-radius: 18px 18px 4px 18px;
+        margin: 0.5rem 0 0.5rem 2rem;
+        max-width: 80%;
+        margin-left: auto;
+        box-shadow: 0 2px 4px rgba(0,102,204,0.3);
+    }
+    
+    .bot-message {
+        background-color: white;
+        color: #333;
+        padding: 1rem 1.5rem;
+        border-radius: 18px 18px 18px 4px;
+        margin: 0.5rem 2rem 0.5rem 0;
+        max-width: 80%;
+        border-left: 4px solid #004499;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    
+    /* Feature cards */
+    .feature-card {
+        background-color: white;
+        border-radius: 8px;
+        padding: 1.5rem;
+        margin: 1rem 0;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        border-left: 4px solid #004499;
+    }
+    
+    .feature-title {
+        color: #004499;
+        font-size: 1.3rem;
+        font-weight: 600;
+        margin-bottom: 0.5rem;
+    }
+    
+    /* Quick actions */
+    div.stButton > button {
+        background-color: #004499;
+        color: white;
+        border: none;
+        padding: 0.75rem 1.5rem;
+        border-radius: 6px;
+        cursor: pointer;
+        font-weight: 500;
+        transition: background-color 0.3s;
+    }
+    
+    div.stButton > button:hover {
+        background-color: #004499 !important;
+        color: white !important;
+        border: none;
+    }
+    
+    /* Custom Selectbox styling to match buttons */
+    div[data-baseweb="select"] > div {
+        background-color: #004499;
+        color: white;
+        border-radius: 6px;
+        border: 1px solid #004499;
+    }
+
+    /* Hover effect for selectbox */
+    div[data-baseweb="select"] > div:hover {
+        border-color: #004499;
+    }
+
+    /* Custom Chat Input styling */
+    div[data-testid="stChatInput"] textarea {
+        background-color: #004499;
+        color: white;
+        border-radius: 6px;
+        border: 1px solid #004499; /* Darker blue border for definition */
+    }
+    
+    /* Placeholder text color for chat input */
+    div[data-testid="stChatInput"] textarea::placeholder {
+        color: rgba(255, 255, 255, 0.7);
+    }
+
+    /* FAQ section */
+    .faq-section {
+        background-color: #004499;
+        border-radius: 8px;
+        padding: 1.5rem;
+        margin: 2rem 0;
+    }
+    
+    .faq-title {
+        color: #004499;
+        font-size: 1.5rem;
+        font-weight: 600;
+        margin-bottom: 1rem;
+    }
+    
+    /* Footer */
+    .footer {
+        margin-top: 3rem;
+        padding: 2rem 0;
+        border-top: 1px solid #004499;
+        text-align: center;
+        color: #666;
+        font-size: 0.9rem;
+    }
+
+    /* Code block styling for bot messages */
+    .bot-message pre {
+        background-color: #004499 !important; /* Use !important to ensure override */
+        color: white !important;
+        padding: 1rem;
+        border-radius: 8px;
+        overflow-x: auto;
+        font-family: monospace;
+        white-space: pre-wrap;
+        word-break: break-all;
+    }
+
+    .bot-message pre code {
+        background-color: transparent !important;
+        color: white !important;
+    }
+</style>
+""", unsafe_allow_html=True)
+
+# Initialize session state
+if 'messages' not in st.session_state:
+    st.session_state.messages = []
+if 'user_name' not in st.session_state:
+    st.session_state.user_name = ""
+
+# Header
+st.markdown("""
+<div class="header-container">
+    <div class="header-title">🗄️ SQL Query Assistant</div>
+    <div class="header-subtitle">Talk to your data in English</div>
+</div>
+""", unsafe_allow_html=True)
+
+# Main layout
+col1, col2 = st.columns([2, 1])
+
+with col1:
+    # Chat interface
+    st.markdown('<div class="chat-container">', unsafe_allow_html=True)
+    
+    # Display chat messages
+    chat_placeholder = st.empty()
+    
+    def display_messages():
+        messages_html = ""
+        for message in st.session_state.messages:
+            if message["role"] == "user":
+                messages_html += f'<div class="user-message">{message["content"]}</div>'
+            else:
+                messages_html += f'<div class="bot-message">{message["content"]}</div>'
+        return messages_html
+    
+    with chat_placeholder.container():
+        if st.session_state.messages:
+            st.markdown(display_messages(), unsafe_allow_html=True)
+        else:
+            st.markdown("""
+            <div class="bot-message">
+                👋 Hello! I'm your SQL Query Assistant. You can ask for the data related to following Product areas:
+                <br>• AMD (Approve My Deal)
+                <br>• RMD (Review My Deal) 
+                <br>• DMR (Deepen My Relationship)
+                <br><br>What do you know to ask?
+            </div>
+            """, unsafe_allow_html=True)
+    
+    st.markdown('</div>', unsafe_allow_html=True)
+    
+    # Chat input
+    user_input = st.chat_input("Describe the data you need in natural language...")
+    
+    if user_input:
+        # Add user message
+        st.session_state.messages.append({"role": "user", "content": user_input})
+        
+        # Generate bot response (simulate SQL generation)
+        def generate_response(user_message):
+            user_message_lower = user_message.lower()
+            
+            if any(word in user_message_lower for word in ["customer", "customers", "client"]):
+                return """Here's a SQL query to retrieve customer data:
+
+```sql
+SELECT customer_id, first_name, last_name, email, phone, 
+       registration_date, status
+FROM customers
+WHERE status = 'active'
+ORDER BY registration_date DESC;
+```
+
+**Query Explanation:**
+• Retrieves active customer information
+• Includes contact details and registration info
+• Sorted by most recent registrations first
+
+Would you like me to modify this query or add specific filters?"""
+            
+            elif any(word in user_message_lower for word in ["transaction", "transactions", "payment"]):
+                return """Here's a SQL query for transaction data:
+
+```sql
+SELECT t.transaction_id, t.customer_id, t.amount, 
+       t.transaction_date, t.transaction_type, t.status,
+       c.first_name, c.last_name
+FROM transactions t
+JOIN customers c ON t.customer_id = c.customer_id
+WHERE t.transaction_date >= DATE_SUB(NOW(), INTERVAL 30 DAY)
+ORDER BY t.transaction_date DESC;
+```
+
+**Query Explanation:**
+• Shows transactions from the last 30 days
+• Includes customer information via JOIN
+• Ordered by most recent transactions
+
+Need to filter by amount, type, or different date range?"""
+            
+            elif any(word in user_message_lower for word in ["count", "total", "sum", "aggregate"]):
+                return """Here's a SQL query with aggregation:
+
+```sql
+SELECT 
+    DATE(transaction_date) as transaction_day,
+    COUNT(*) as total_transactions,
+    SUM(amount) as total_amount,
+    AVG(amount) as average_amount
+FROM transactions
+WHERE transaction_date >= DATE_SUB(NOW(), INTERVAL 7 DAY)
+GROUP BY DATE(transaction_date)
+ORDER BY transaction_day DESC;
+```
+
+**Query Explanation:**
+• Groups transactions by day for the last 7 days
+• Shows count, sum, and average amounts
+• Useful for daily transaction analysis
+
+Want to group by different time periods or add more metrics?"""
+            
+            elif any(word in user_message_lower for word in ["join", "relationship", "related"]):
+                return """Here's a SQL query with multiple table joins:
+
+```sql
+SELECT 
+    c.customer_id,
+    c.first_name,
+    c.last_name,
+    a.account_number,
+    a.account_type,
+    t.transaction_id,
+    t.amount,
+    t.transaction_date
+FROM customers c
+JOIN accounts a ON c.customer_id = a.customer_id
+JOIN transactions t ON a.account_id = t.account_id
+WHERE c.status = 'active'
+  AND t.transaction_date >= '2024-01-01'
+ORDER BY t.transaction_date DESC;
+```
+
+**Query Explanation:**
+• Joins customers, accounts, and transactions tables
+• Shows relationship between customer and their transaction history
+• Filters for active customers and recent transactions
+
+Need different join types or additional tables?"""
+            
+            else:
+                return """I can help you generate SQL queries! Here are some examples of what I can create:
+
+• **Customer Queries** - "Show me all active customers"
+• **Transaction Analysis** - "Get payment data from last month" 
+• **Aggregations** - "Count total orders by region"
+• **Complex Joins** - "Customer data with their order history"
+• **Filtered Results** - "Products with inventory below 10"
+
+Just describe what data you need in plain English, and I'll convert it to SQL. What would you like to query?"""
+        
+        
+        # Add bot response with typing effect
+        with st.spinner(""):
+            time.sleep(1)  # Simulate thinking time
+            bot_response = generate_response(user_input)
+            st.session_state.messages.append({"role": "assistant", "content": bot_response})
+        
+        # Refresh the chat display
+        st.rerun()
+
+with col2:
+    # Product Area Dropdown
+    st.markdown("### Product Area")
+    product_area = st.selectbox(
+        "Select Product Area:",
+        ["AMD", "RMD", "DMR"],
+        help="AMD: Application Management Database, RMD: Risk Management Database, DMR: Data Management Repository"
+    )
+    
+    st.markdown("---")
+    
+    # Sample queries
+    st.markdown("### Sample Queries")
+    
+    sample_queries = [
+        "Total Applications in the last 30 days", 
+        "Forecast of bookings by end of the month",
+        "Give me the cashing rate by channels in last 3 months",
+        "Total number of Refinance Applications till date",
+        "How is the YTD bookings rate this year compared to last year?"
+    ]
+    
+    for query in sample_queries:
+        if st.button(query, key=f"sample_{query}", use_container_width=True):
+            # Simulate clicking on sample query
+            st.session_state.messages.append({"role": "user", "content": query})
+            st.rerun()
+    
+    # Common SQL patterns section
+    st.markdown("---")
+    st.markdown("### Common SQL Patterns")
+    
+    patterns = [
+        {"title": "Best Practices", "desc": "Retrieve specific columns"}
+        
+    ]
+    
+    for pattern in patterns:
+        st.markdown(f"""
+        <div class="feature-card">
+            <div class="feature-title">{pattern['title']}</div>
+            <div>{pattern['desc']}</div>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    # FAQ section
+    st.markdown("---")
+    st.markdown("### SQL Help")
+    
+    with st.expander("How do I write a JOIN query?"):
+        st.write("Use JOIN to combine data from multiple tables. Example: SELECT * FROM table1 JOIN table2 ON table1.id = table2.id")
+    
+    with st.expander("What's the difference between WHERE and HAVING?"):
+        st.write("WHERE filters rows before grouping, HAVING filters groups after GROUP BY clause.")
+    
+    with st.expander("How do I handle NULL values?"):
+        st.write("Use IS NULL or IS NOT NULL to check for null values, or COALESCE() to provide default values.")
+
+# Footer
+st.markdown("""
+<div class="footer">
+    <p>SQL Query Assistant • Talk to your data in English</p>
+    <p>Supporting AMD, RMD, and DMR areas of Auto Products</p>
+</div>
+""", unsafe_allow_html=True)
